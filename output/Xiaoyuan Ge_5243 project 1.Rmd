@@ -1,0 +1,248 @@
+---
+title: "5243project1"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r packages}
+# install packages and load 
+
+packages.used=c("tm", "numofwordcloud", "RColorBrewer", "dplyr", "tidytext")
+# check packages that need to be installed.
+packages.needed=setdiff(packages.used, 
+                        intersect(installed.packages()[,1], 
+                        packages.used))
+# install additional packages
+if(length(packages.needed)>0){
+  install.packages(packages.needed, dependencies = TRUE,
+                   repos='http://cran.us.r-project.org')
+}
+library("sentimentr")
+library("stringr")
+library("gplots")
+library("dplyr")
+library("syuzhet")
+library("factoextra")
+library("scales")
+library("RColorBrewer")
+library("readtext")
+library("ggplot2")
+library("MASS")
+library("dplyr")
+library("tidyverse")
+library("fmsb")
+library("tidytext")
+library("tm")
+library("ggplot2")
+library("tidyverse")
+
+```
+
+This notebook was prepared with the following environmental settings.
+
+
+## Introduction 
+Under some condition, students major in math, physics, chemistry or anything that related to math would like to say that they are more rational and empirical because they focus on the behind logic of the story. However, some people who majored in art, communications or media would more likely express them as idealism or more rely on emotions. This is a starter that why I'm interested in rationalism, empiricism and idealism. Do rationalism, empiricism and idealism really different with each other?
+```{r read data and summary}
+# import dataset 
+philosophy_data <- read.csv("~/Desktop/5243 Applied Data Science/project1/philosophy_data.csv")
+```
+
+```{r classify data}
+#filter out the schools that i need 
+rat=philosophy_data[philosophy_data$school=='rationalism',]
+emp=philosophy_data[philosophy_data$school=='empiricism',]
+gi=philosophy_data[philosophy_data$school=='german_idealism',]
+```
+## Explore the differences 
+First of all, I'm trying to find out whether there are any differences of the length of the sentense? I'm curious about whether the length of rationalism and empiricism would shorter in general than idealism. So I apply the histogram to explore the number of words in one sentence of each 3 schools and found out that there are no much differences on words containing in one sentences. They share similar distributions which represent the number of words in each 3 schools are almost the same. There are no one specific school express more shorter or precise in one sentence.
+```{r}
+library("stringr")                       # Load stringr package
+numofword_rat<-str_count(rat$sentence_str,pattern=' ')
+numofword_emp<-str_count(emp$sentence_str,pattern=' ')
+numofword_gi<-str_count(gi$sentence_str,pattern=' ')
+# put the histogram into a 2*2 form 
+par(mfrow=c(1,3))
+# draw the histogram of 3 schools' word number frequency
+hist(numofword_rat,breaks=30,main="Words frequency \n in the sentence of rationalism ",xlim=c(0,150))
+hist(numofword_emp,breaks=30,main="Words frequency \n in the sentence  of empiricism ",xlim=c(0,200))
+hist(numofword_gi,breaks=30,main="Words frequency \n in the sentence of German Idealism ",xlim=c(0,200))
+```
+After observing there are no much differences on containing number of words in one sentence, we continue our sentiment analysis on specific words in the sentence. Therefore I apply the radar chart to show the average emotion shows in the sentences. From the chart, we see that idealism express way more trust than rationalism and empiricism. Overall, the emotion of rationalism and empiricism conveys similar emotion. Rationalism conveys more joy, anticipation and fear. Except those 3 emotions, the rest of emtions are almost the same. Starting from here, we could see the difference of idealism from the other two. And further exploring the word emotion by ordering each emotions, we observe that the rank of each emotion are the same. For all schools, the all express the lowest emotion of negatives like disgust, anger and sadness. All 3 schools express positives more than negatives like joy and trust. Therefore, I would like to say that all 3 schools convey a sense of positive and optimistic.
+```{r}
+library(syuzhet)
+#emotional analysis 
+emo_rat<-get_nrc_sentiment(rat$sentence_str)
+emo_emp<-get_nrc_sentiment(emp$sentence_str)
+emo_gi<-get_nrc_sentiment(gi$sentence_str)
+emo_rat<-as.data.frame(diag(1/(numofword_rat+0.01))%*%as.matrix(emo_rat))
+emo_emp<-as.data.frame(diag(1/(numofword_emp+0.01))%*%as.matrix(emo_emp))
+emo_gi<-as.data.frame(diag(1/(numofword_gi+0.01))%*%as.matrix(emo_gi))
+sum_rat<-apply(emo_rat,2,sum)/length(rat[,1])
+sum_emp<-apply(emo_emp,2,sum)/length(emp[,1])
+sum_gi<-apply(emo_gi,2,sum)/length(emp[,1])
+#per_cap<-apply(emo_cap,2,sum)/length(cap[,1])
+#per_com<-apply(emo_com,2,sum)/length(com[,1])
+```
+
+```{r}
+res<-data.frame(rbind(rep(0.08,10),rep(0,10),sum_rat,sum_emp,sum_gi),
+                row.names=c('Max','Min','Rationalism','Empiricism','German Idealism'))
+```
+
+```{r}
+library("fmsb")
+library(RColorBrewer)
+library(radarchart)
+radarchart(res[,1:8],axistype=0,pcol=c("#00AFBB","#FC4E07","#A6761D"),
+           pfcol=scales::alpha(c("#00AFBB","#FC4E07","#A6761D"),0.5),plty=1,
+           cglty=5,cglcol="black",cglwd =0.5,
+           title='Radar Chart of sentiments in schools of Rationalism,Empiricism \n and German Idealism')
+legend(x="topright",legend=c('Rationalism','Empiricism','German Idealism'),bty="n",
+       pch=20,col=c("#00AFBB","#FC4E07","#A6761D"),text.col="black",cex=1,
+       pt.cex=1.5)
+res[3:4,9:10]
+```
+
+```{r}
+means_rat=colMeans(emo_rat[,1:8]>0.005)
+means_emp=colMeans(emo_emp[,1:8]>0.005)
+means_gi=colMeans(emo_gi[,1:8]>0.005)
+col.use=c("darkolivegreen3", "darkslategray4", 
+            "darkolivegreen1", "darkolivegreen",
+            "darkgreen", "darkolivegreen4", 
+            "darkolivegreen2", "darkslategrey")
+barplot(means_rat[order(means_rat)],las=2, col=col.use[order(means_rat)],main="Rationalism sentences")
+barplot(means_emp[order(means_emp)],las=2, col=col.use[order(means_emp)],main="Empiricism sentences")
+barplot(means_gi[order(means_gi)],las=2, col=col.use[order(means_gi)],main="German Idealism sentences")
+```
+
+```{r}
+sentence_cluster<-function(sentence,emotion){
+  sents<-variable.names(emotion)[1:8]
+  emos<-variable.names(emotion)[9:10]
+  anyemo<-apply(emotion>=1e-6,1,any)
+  emotion<-emotion[anyemo,]
+  sentence<-sentence[anyemo]
+  sentiment<-cbind(sents[apply(emotion[,1:8],1,which.max)],apply(emotion[,1:8],1,max))
+  emotion<-cbind(emos[apply(emotion[,9:10],1,which.max)],apply(emotion[,9:10],1,max))
+  return(cbind(sentence,sentiment,emotion))
+}
+sent_rat<-data.frame(sentence_cluster(rat$sentence_str,emo_rat))
+sent_emp<-data.frame(sentence_cluster(emp$sentence_str,emo_emp))
+sent_gi<-data.frame(sentence_cluster(gi$sentence_str,emo_gi))
+names(sent_rat)<-c('sentence','sentiment','score1','emotion','score2')
+names(sent_emp)<-c('sentence','sentiment','score1','emotion','score2')
+names(sent_gi)<-c('sentence','sentiment','score1','emotion','score2')
+```
+
+```{r}
+#barplot
+sent1<-data.frame(as.character(levels(factor(sent_rat$sentiment))),
+                  summary(factor(sent_rat$sentiment),row.names=NULL))
+names(sent1)<-c('sentiment','count')
+sent2<-data.frame(as.character(levels(factor(sent_emp$sentiment))),
+                  summary(factor(sent_emp$sentiment),row.names=NULL))
+names(sent2)<-c('sentiment','count')
+sent3<-data.frame(as.character(levels(factor(sent_gi$sentiment))),
+                  summary(factor(sent_gi$sentiment),row.names=NULL))
+names(sent3)<-c('sentiment','count')
+sent1%>%
+  mutate(name=fct_reorder(sentiment,count))%>%
+  ggplot(aes(x=reorder(sentiment,count),y=count))+
+    geom_bar(stat="identity",col=0,fill=4)+
+    theme(axis.text.y=element_text(size=10),title=element_text(size=15),text=element_text(size=12))+
+    labs(title="Rationalism: Number of sentences \n in different sentiments", x="")+
+    geom_text(mapping=aes(label=count))+
+    coord_flip()
+sent2%>%
+  mutate(name=fct_reorder(sentiment,count))%>%
+  ggplot(aes(x=reorder(sentiment,count),y=count))+
+    geom_bar(stat="identity",col=0,fill=4)+
+    theme(axis.text.y=element_text(size=10),title=element_text(size=15),text=element_text(size=12))+
+    labs(title="Empiricism: Number of sentences \n in different sentiments", x="")+
+    geom_text(mapping=aes(label=count))+
+    coord_flip()
+sent3%>%
+  mutate(name=fct_reorder(sentiment,count))%>%
+  ggplot(aes(x=reorder(sentiment,count),y=count))+
+    geom_bar(stat="identity",col=0,fill=4)+
+    theme(axis.text.y=element_text(size=10),title=element_text(size=15),text=element_text(size=12))+
+    labs(title="German Idealism: Number of sentences \n in different sentiments", x="")+
+    geom_text(mapping=aes(label=count))+
+    coord_flip()
+```
+After figuring out there are indeed some emotions specific words different in each schools, next step for me that I want to explore is that what specific words in one sentence shows up the most quantity of times. There are actually 2 ways to draw a word cloud but here I just imply one way that is just calculating the word count. And the word cloud is based on the word count. Finally we found out that for rationalism the most words that they use is god, will, things,nature, body which kind of different from what I defined rationalism. And we could see that the most frequent word empiricism are ideas, mind, may,can.Finally for idealism, the most word that idealism use is concept,reason and can. 
+```{r,warning=F,message=F}
+#text processing
+sts_rat<-Corpus(VectorSource(rat$sentence_str))
+sts_emp<-Corpus(VectorSource(emp$sentence_str))
+sts_gi<-Corpus(VectorSource(gi$sentence_str))
+# clear white space, convert to lower case 
+#Rationalism
+sts_rat<-tm_map(sts_rat, stripWhitespace)
+sts_rat<-tm_map(sts_rat, content_transformer(tolower))
+sts_rat<-tm_map(sts_rat, removeWords, stopwords("english"))
+sts_rat<-tm_map(sts_rat, removeWords, character(0))
+sts_rat<-tm_map(sts_rat, removePunctuation)
+#Empiricism
+sts_emp<-tm_map(sts_emp, stripWhitespace)
+sts_emp<-tm_map(sts_emp, content_transformer(tolower))
+sts_emp<-tm_map(sts_emp, removeWords, stopwords("english"))
+sts_emp<-tm_map(sts_emp, removeWords, character(0))
+sts_emp<-tm_map(sts_emp, removePunctuation)
+#German Idealism
+sts_gi<-tm_map(sts_gi, stripWhitespace)
+sts_gi=tm_map(sts_gi, content_transformer(tolower))
+sts_gi<-tm_map(sts_gi, removeWords, stopwords("english"))
+sts_gi<-tm_map(sts_gi, removeWords, character(0))
+sts_gi<-tm_map(sts_gi, removePunctuation)
+# Then we compute the [Document-Term Matrix (DTM)]
+tdm_rat<-TermDocumentMatrix(sts_rat)
+tdm_emp<-TermDocumentMatrix(sts_emp)
+tdm_gi<-TermDocumentMatrix(sts_gi)
+```
+
+```{r}
+# Turn the Term Document Matrix into a tidy tibble and get the Overall Counts over the Whole Corpus
+tdm_rat_tidy<-tidy(tdm_rat)
+tdm_emp_tidy<-tidy(tdm_emp)
+tdm_gi_tidy<-tidy(tdm_gi)
+tdm_rat_overall<-summarise(group_by(tdm_rat_tidy,term),sum(count))
+tdm_emp_overall<-summarise(group_by(tdm_emp_tidy,term),sum(count))
+tdm_gi_overall<-summarise(group_by(tdm_gi_tidy,term),sum(count))
+```
+
+```{r}
+library("wordcloud")
+#wordcloud
+wordcloud(tdm_rat_overall$term, tdm_rat_overall$`sum(count)`, 
+          scale=c(5,0.5),
+          max.words=100,
+          min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,
+          random.color=FALSE,
+          colors=brewer.pal(9,"Reds"))
+wordcloud(tdm_emp_overall$term, tdm_emp_overall$`sum(count)`,
+          scale=c(5,0.5),
+          max.words=100,
+          min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,
+          random.color=FALSE,
+          colors=brewer.pal(9,"Blues"))
+wordcloud(tdm_gi_overall$term, tdm_gi_overall$`sum(count)`,
+          scale=c(5,0.5),
+          max.words=100,
+          min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,
+          random.color=FALSE,
+          colors=brewer.pal(9,"Greens"))
+```
+In conclusion, we could conclude that when we use sentimental analysi at the first time, we didn't say much differences among all 3 schools based on the words number in one sentence. Although indeed observe idealism has some differences on emotion by plotting spider chart becase it express more trust than the other 2 shcools. Futher, by drawing word cloud we observe that 3 schools the most frequent words use are different. After the whole analyzing, I found that there are slightly differences between rationalism and empiricism. But idealism have bigger differences because it conveys more trust in the sentences among the all. But there are one similarity share among all school is that they all express the sense of positive and optimistic in their sentences and words. 
